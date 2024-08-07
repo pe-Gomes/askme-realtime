@@ -24,9 +24,8 @@ FROM messages
 WHERE id = $1;
 
 -- name: GetRoomMessages :many
-SELECT (
+SELECT
   "id", "room_id", "message", "answered", "reaction_count", "created_at"
-  )
 FROM messages
 WHERE "room_id" = $1;
 
@@ -38,14 +37,14 @@ RETURNING "id";
 
 -- name: ReactToMessage :one
 UPDATE messages
-SET 
+SET
   reaction_count = reaction_count + 1
 WHERE "id" = $1
 RETURNING "reaction_count";
 
 -- name: RemoveReactionToMessage :one
 UPDATE messages
-SET 
+SET
   reaction_count = reaction_count - 1
 WHERE "id" = $1
 RETURNING "reaction_count";
@@ -54,5 +53,5 @@ RETURNING "reaction_count";
 UPDATE messages
 SET
   ansewered = true
-WHERE 
+WHERE
   "id" = $1;

@@ -78,26 +78,41 @@ func (q *Queries) GetRoom(ctx context.Context, id uuid.UUID) (GetRoomRow, error)
 }
 
 const getRoomMessages = `-- name: GetRoomMessages :many
-SELECT (
+SELECT
   "id", "room_id", "message", "answered", "reaction_count", "created_at"
-  )
 FROM messages
 WHERE "room_id" = $1
 `
 
-func (q *Queries) GetRoomMessages(ctx context.Context, roomID uuid.UUID) ([]interface{}, error) {
+type GetRoomMessagesRow struct {
+	ID            uuid.UUID
+	RoomID        uuid.UUID
+	Message       string
+	Answered      bool
+	ReactionCount int64
+	CreatedAt     pgtype.Timestamptz
+}
+
+func (q *Queries) GetRoomMessages(ctx context.Context, roomID uuid.UUID) ([]GetRoomMessagesRow, error) {
 	rows, err := q.db.Query(ctx, getRoomMessages, roomID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []interface{}
+	var items []GetRoomMessagesRow
 	for rows.Next() {
-		var column_1 interface{}
-		if err := rows.Scan(&column_1); err != nil {
+		var i GetRoomMessagesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RoomID,
+			&i.Message,
+			&i.Answered,
+			&i.ReactionCount,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, column_1)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -159,7 +174,7 @@ const markMessageAsAnswered = `-- name: MarkMessageAsAnswered :exec
 UPDATE messages
 SET
   ansewered = true
-WHERE 
+WHERE
   "id" = $1
 `
 
@@ -170,7 +185,7 @@ func (q *Queries) MarkMessageAsAnswered(ctx context.Context, id uuid.UUID) error
 
 const reactToMessage = `-- name: ReactToMessage :one
 UPDATE messages
-SET 
+SET
   reaction_count = reaction_count + 1
 WHERE "id" = $1
 RETURNING "reaction_count"
@@ -185,7 +200,7 @@ func (q *Queries) ReactToMessage(ctx context.Context, id uuid.UUID) (int64, erro
 
 const removeReactionToMessage = `-- name: RemoveReactionToMessage :one
 UPDATE messages
-SET 
+SET
   reaction_count = reaction_count - 1
 WHERE "id" = $1
 RETURNING "reaction_count"
