@@ -84,6 +84,7 @@ func NewHandler(q *pgstore.Queries) http.Handler {
 const (
 	MessageKindMessageCreated  = "message_created"
 	MessageKindMessageReaction = "message_reacted"
+	MessageKindMessageAnswered = "message_answered"
 )
 
 type MessageMessageCreated struct {
@@ -94,6 +95,11 @@ type MessageMessageCreated struct {
 type MessageMessageReaction struct {
 	ID            string
 	ReactionCount int64
+}
+
+type MessageMessageAnswered struct {
+	ID       string
+	Answered bool
 }
 
 type Message struct {
@@ -187,7 +193,6 @@ func (h apiHandler) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	data, _ := json.Marshal(response{ID: roomID.String()})
 
-	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data)
 }
@@ -274,6 +279,7 @@ func (h apiHandler) handleGetRoomMessages(w http.ResponseWriter, r *http.Request
 		RoomID        string    `json:"room_id"`
 		Message       string    `json:"message"`
 		ReactionCount int64     `json:"reaction_count"`
+		Answered      bool      `json:"answered"`
 		CreatedAt     time.Time `json:"created_at"`
 	}
 
@@ -289,6 +295,7 @@ func (h apiHandler) handleGetRoomMessages(w http.ResponseWriter, r *http.Request
 			RoomID:        roomID.String(),
 			Message:       msg.Message,
 			ReactionCount: msg.ReactionCount,
+			Answered:      msg.Answered,
 			CreatedAt:     msg.CreatedAt.Time,
 		}
 	}
@@ -523,4 +530,13 @@ func (h apiHandler) handleMarkMessageAnswered(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+
+	go h.notifyClient(Message{
+		Kind:   MessageKindMessageAnswered,
+		RoomID: rawRoomID,
+		Value: MessageMessageAnswered{
+			ID:       messageID.String(),
+			Answered: true,
+		},
+	})
 }

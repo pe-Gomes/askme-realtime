@@ -82,6 +82,7 @@ SELECT
   "id", "room_id", "message", "answered", "reaction_count", "created_at"
 FROM messages
 WHERE "room_id" = $1
+ORDER BY "created_at" DESC
 `
 
 type GetRoomMessagesRow struct {
