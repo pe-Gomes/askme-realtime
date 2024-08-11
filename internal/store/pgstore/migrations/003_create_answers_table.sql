@@ -3,9 +3,9 @@ CREATE TABLE IF NOT EXISTS answers (
     id uuid PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     message_id uuid NOT NULL,
     answer text NOT NULL,
-    reaction_count int DEFAULT 0,
-    created_at timestamp DEFAULT current_timestamp,
-    FOREIGN KEY (messages_id) REFERENCES messages (
+    reaction_count bigint DEFAULT 0,
+    created_at timestamp DEFAULT now(),
+    FOREIGN KEY (message_id) REFERENCES messages (
         id
     ) ON DELETE CASCADE ON UPDATE CASCADE
 );

@@ -75,6 +75,9 @@ func NewHandler(q *pgstore.Queries) http.Handler {
 				})
 			})
 		})
+		r.Route("/messages/{messageID}", func(r chi.Router) {
+			// r.Post("/answer", a.handleCreateAnswer)
+		})
 	})
 	a.r = r
 

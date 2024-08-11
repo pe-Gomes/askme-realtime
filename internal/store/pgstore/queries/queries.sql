@@ -50,7 +50,17 @@ SET
 WHERE "id" = $1
 RETURNING "reaction_count";
 
+-- name: InsertMessageAnswer :one
+INSERT INTO answers
+  ("message_id", "answer") VALUES
+  ( $1, $2 )
+RETURNING "id";
 
+-- name: GetMessageAnswers :many
+SELECT
+  "id", "message_id", "answer", "reaction_count", "created_at"
+FROM answers
+WHERE "message_id" = $1;
 
 -- name: MarkMessageAsAnswered :exec
 UPDATE messages

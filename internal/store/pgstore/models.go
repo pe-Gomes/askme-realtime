@@ -13,7 +13,7 @@ type Answer struct {
 	ID            uuid.UUID
 	MessageID     uuid.UUID
 	Answer        string
-	ReactionCount pgtype.Int4
+	ReactionCount pgtype.Int8
 	CreatedAt     pgtype.Timestamp
 }
 

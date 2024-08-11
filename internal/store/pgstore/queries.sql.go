@@ -58,6 +58,39 @@ func (q *Queries) GetMessage(ctx context.Context, id uuid.UUID) (GetMessageRow, 
 	return i, err
 }
 
+const getMessageAnswers = `-- name: GetMessageAnswers :many
+SELECT
+  "id", "message_id", "answer", "reaction_count", "created_at"
+FROM answers
+WHERE "message_id" = $1
+`
+
+func (q *Queries) GetMessageAnswers(ctx context.Context, messageID uuid.UUID) ([]Answer, error) {
+	rows, err := q.db.Query(ctx, getMessageAnswers, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Answer
+	for rows.Next() {
+		var i Answer
+		if err := rows.Scan(
+			&i.ID,
+			&i.MessageID,
+			&i.Answer,
+			&i.ReactionCount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getRoom = `-- name: GetRoom :one
 SELECT
   "id", "theme"
@@ -166,6 +199,25 @@ type InsertMessageParams struct {
 
 func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, insertMessage, arg.RoomID, arg.Message)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertMessageAnswer = `-- name: InsertMessageAnswer :one
+INSERT INTO answers
+  ("message_id", "answer") VALUES
+  ( $1, $2 )
+RETURNING "id"
+`
+
+type InsertMessageAnswerParams struct {
+	MessageID uuid.UUID
+	Answer    string
+}
+
+func (q *Queries) InsertMessageAnswer(ctx context.Context, arg InsertMessageAnswerParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, insertMessageAnswer, arg.MessageID, arg.Answer)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
