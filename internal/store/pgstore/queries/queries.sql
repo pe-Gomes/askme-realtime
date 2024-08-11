@@ -1,5 +1,5 @@
 -- name: GetRoom :one
-SELECT 
+SELECT
   "id", "theme"
 FROM rooms
 WHERE ID = $1;
@@ -14,7 +14,7 @@ INSERT INTO rooms (
   "theme"
   ) VALUES (
   $1
-  ) 
+  )
 RETURNING "id";
 
 -- name: GetMessage :one
@@ -49,6 +49,8 @@ SET
   reaction_count = reaction_count - 1
 WHERE "id" = $1
 RETURNING "reaction_count";
+
+
 
 -- name: MarkMessageAsAnswered :exec
 UPDATE messages

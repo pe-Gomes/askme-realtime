@@ -9,6 +9,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Answer struct {
+	ID            uuid.UUID
+	MessageID     uuid.UUID
+	Answer        string
+	ReactionCount pgtype.Int4
+	CreatedAt     pgtype.Timestamp
+}
+
 type Message struct {
 	ID            uuid.UUID
 	RoomID        uuid.UUID

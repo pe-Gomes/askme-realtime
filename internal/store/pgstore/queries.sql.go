@@ -17,7 +17,7 @@ INSERT INTO rooms (
   "theme"
   ) VALUES (
   $1
-  ) 
+  )
 RETURNING "id"
 `
 
@@ -59,7 +59,7 @@ func (q *Queries) GetMessage(ctx context.Context, id uuid.UUID) (GetMessageRow, 
 }
 
 const getRoom = `-- name: GetRoom :one
-SELECT 
+SELECT
   "id", "theme"
 FROM rooms
 WHERE ID = $1
