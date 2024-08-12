@@ -14,9 +14,13 @@ import (
 	"github.com/pe-Gomes/askme-realtime/internal/store/pgstore"
 )
 
+const env string = "PRODUCTION"
+
 func main() {
-	if err := godotenv.Load(); err != nil {
-		panic(fmt.Errorf("error loading env files: %w", err))
+	if env != "PRODUCTION" {
+		if err := godotenv.Load(); err != nil {
+			panic(fmt.Errorf("error loading env files: %w", err))
+		}
 	}
 
 	ctx := context.Background()
