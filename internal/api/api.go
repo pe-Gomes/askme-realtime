@@ -69,14 +69,17 @@ func NewHandler(q *pgstore.Queries) http.Handler {
 
 				r.Route("/{messageID}", func(r chi.Router) {
 					r.Get("/", a.handleGetRoomMessage)
+
 					r.Patch("/react", a.handleReactToRoomMessage)
 					r.Delete("/react", a.handleRemoveReactionFromRoomMessage)
+
+					r.Post("/answer", a.handleCreateMessageAnswer)
 					r.Patch("/answer", a.handleMarkMessageAnswered)
 				})
 			})
 		})
 		r.Route("/messages/{messageID}", func(r chi.Router) {
-			// r.Post("/answer", a.handleCreateAnswer)
+			r.Get("/", a.handleGetMessageAnswers)
 		})
 	})
 	a.r = r
@@ -88,6 +91,7 @@ const (
 	MessageKindMessageCreated  = "message_created"
 	MessageKindMessageReaction = "message_reacted"
 	MessageKindMessageAnswered = "message_answered"
+	MessageKindMessageAnswer   = "message_answer"
 )
 
 type MessageMessageCreated struct {
@@ -103,6 +107,11 @@ type MessageMessageReaction struct {
 type MessageMessageAnswered struct {
 	ID       string
 	Answered bool
+}
+
+type MessageMessageAnswer struct {
+	ID     string
+	Answer string
 }
 
 type Message struct {
@@ -490,6 +499,110 @@ func (h apiHandler) handleRemoveReactionFromRoomMessage(w http.ResponseWriter, r
 			ReactionCount: reactions,
 		},
 	})
+}
+
+func (h apiHandler) handleCreateMessageAnswer(w http.ResponseWriter, r *http.Request) {
+	rawRoomID := chi.URLParam(r, "roomID")
+	roomID, err := uuid.Parse(rawRoomID)
+	if err != nil {
+		http.Error(w, "invalid room ID", http.StatusBadRequest)
+		return
+	}
+
+	rawMessageID := chi.URLParam(r, "messageID")
+	messageID, err := uuid.Parse(rawMessageID)
+	if err != nil {
+		http.Error(w, "invalid message id", http.StatusBadRequest)
+		return
+	}
+	_, err = h.q.GetMessage(r.Context(), messageID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "message not found", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "something went wrong", http.StatusInternalServerError)
+		return
+	}
+	type _body struct {
+		Answer string `json:"answer" validate:"required,min=2"`
+	}
+	var body _body
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+	}
+	if err := h.v.Struct(body); err != nil {
+		http.Error(w, "invalid input: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	answerID, err := h.q.InsertMessageAnswer(r.Context(), pgstore.InsertMessageAnswerParams{
+		MessageID: messageID,
+		Answer:    body.Answer,
+	})
+	if err != nil {
+		http.Error(w, "something went wrong", http.StatusInternalServerError)
+		return
+	}
+	type response struct {
+		ID string `json:"id"`
+	}
+	data, _ := json.Marshal(response{ID: answerID.String()})
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data)
+
+	go h.notifyClient(Message{
+		Kind: MessageKindMessageAnswer,
+		Value: MessageMessageAnswer{
+			ID:     answerID.String(),
+			Answer: body.Answer,
+		},
+		RoomID: roomID.String(),
+	})
+}
+
+func (h apiHandler) handleGetMessageAnswers(w http.ResponseWriter, r *http.Request) {
+	rawMessageID := chi.URLParam(r, "messageID")
+	messageID, err := uuid.Parse(rawMessageID)
+	if err != nil {
+		http.Error(w, "invalid message id", http.StatusBadRequest)
+		return
+	}
+	_, err = h.q.GetMessage(r.Context(), messageID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "message not found", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "something went wrong", http.StatusInternalServerError)
+		return
+	}
+	answers, err := h.q.GetMessageAnswers(r.Context(), messageID)
+	if err != nil {
+		http.Error(w, "something went wrong", http.StatusInternalServerError)
+	}
+	type _innerResponse struct {
+		ID        string    `json:"id"`
+		MessageID string    `json:"message_id"`
+		Answer    string    `json:"answer"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+	type _response struct {
+		Answers []_innerResponse `json:"answers"`
+	}
+	innerResponse := make([]_innerResponse, len(answers))
+	for i, ans := range answers {
+		innerResponse[i] = _innerResponse{
+			ID:        ans.ID.String(),
+			MessageID: messageID.String(),
+			Answer:    ans.Answer,
+			CreatedAt: ans.CreatedAt.Time,
+		}
+	}
+	data, _ := json.Marshal(_response{
+		Answers: innerResponse,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data)
 }
 
 func (h apiHandler) handleMarkMessageAnswered(w http.ResponseWriter, r *http.Request) {
